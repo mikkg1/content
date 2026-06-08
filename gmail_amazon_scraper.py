@@ -20,6 +20,13 @@ import sys
 from email import message_from_bytes
 from pathlib import Path
 
+# Use the Windows certificate store so Python trusts corporate/managed PC certs.
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except ImportError:
+    pass  # Not on Windows or not installed — skip silently
+
 import requests
 from dotenv import load_dotenv
 from google.auth.transport.requests import Request
