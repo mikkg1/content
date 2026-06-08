@@ -186,15 +186,19 @@ def parse_order(subject: str, body: str) -> dict | None:
 
     # Shipping service
     shipping = (
-        _first(r"shipping\s+service[:\s]+(.+)", body)
+        _first(r"(?:please\s+ship\s+this\s+order\s+using|shipping\s+service)[:\s]+(.+)", body)
         or _first(r"shipping\s+speed[:\s]+(.+)", body)
         or _first(r"ship\s+method[:\s]+(.+)", body)
         or _first(r"delivery\s+option[:\s]+(.+)", body)
         or _first(r"carrier[:\s]+(.+)", body)
     )
 
-    # Box size rule
-    box_size = ALTAIR_BOX if re.search(r"altair", shipping, re.IGNORECASE) else DEFAULT_BOX
+    # SKU
+    sku = _first(r"sku[:\s]+(\S+)", body)
+
+    # Box size: 10x10 if SKU, item name, or subject contains "altair"; else 8x8
+    altair_match = re.search(r"altair", f"{sku} {item} {subject}", re.IGNORECASE)
+    box_size = ALTAIR_BOX if altair_match else DEFAULT_BOX
 
     return {
         "order_id": order_id or "N/A",
@@ -202,6 +206,7 @@ def parse_order(subject: str, body: str) -> dict | None:
         "ship_by": ship_by or "N/A",
         "item": item or "N/A",
         "quantity": quantity or "N/A",
+        "sku": sku or "N/A",
         "shipping": shipping or "N/A",
         "box_size": box_size,
     }
@@ -220,6 +225,7 @@ def send_telegram_alert(order: dict) -> bool:
         f"*Order Date:* {order['order_date']}\n"
         f"*Ship By:*    {order['ship_by']}\n"
         f"*Item:*       {order['item']}\n"
+        f"*SKU:*        {order['sku']}\n"
         f"*Quantity:*   {order['quantity']}\n"
         f"*Shipping:*   {order['shipping']}\n"
         f"*Box Size:*   {order['box_size']}"
