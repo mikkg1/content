@@ -172,11 +172,12 @@ def parse_order(subject: str, body: str) -> dict | None:
         body,
     )
 
-    # Item description — try several label variants Amazon uses
+    # Item description — stop before the next known label (Condition/SKU/Quantity)
     item = (
-        _first(r"item[:\s]+(.+)", body)
-        or _first(r"product[:\s]+(.+)", body)
-        or _first(r"title[:\s]+(.+)", body)
+        _first(r"item[:\s]+(.+?)(?=\s+(?:condition|sku|quantity|price)\s*:)", body)
+        or _first(r"product[:\s]+(.+?)(?=\s+(?:condition|sku|quantity|price)\s*:)", body)
+        or _first(r"title[:\s]+(.+?)(?=\s+(?:condition|sku|quantity|price)\s*:)", body)
+        or _first(r"item[:\s]+(.+)", body)
     )
     # Fall back: grab item name from subject after "ship now:"
     if not item:
@@ -191,13 +192,14 @@ def parse_order(subject: str, body: str) -> dict | None:
         or _first(r"\b(\d+)\s+unit", body)
     )
 
-    # Shipping service
+    # Shipping service — stop before next label (Ship by / Item / Order date)
     shipping = (
-        _first(r"(?:please\s+ship\s+this\s+order\s+using|shipping\s+service)[:\s]+(.+)", body)
-        or _first(r"shipping\s+speed[:\s]+(.+)", body)
-        or _first(r"ship\s+method[:\s]+(.+)", body)
-        or _first(r"delivery\s+option[:\s]+(.+)", body)
-        or _first(r"carrier[:\s]+(.+)", body)
+        _first(r"(?:please\s+ship\s+this\s+order\s+using|shipping\s+service)[:\s]+(.+?)(?=\s+(?:ship\s+by|item|order\s+date|sku)\s*:)", body)
+        or _first(r"(?:please\s+ship\s+this\s+order\s+using|shipping\s+service)[:\s]+(.+?)(?=\s*$)", body)
+        or _first(r"shipping\s+speed[:\s]+(.+?)(?=\s+\w+\s*:|\s*$)", body)
+        or _first(r"ship\s+method[:\s]+(.+?)(?=\s+\w+\s*:|\s*$)", body)
+        or _first(r"delivery\s+option[:\s]+(.+?)(?=\s+\w+\s*:|\s*$)", body)
+        or _first(r"carrier[:\s]+(.+?)(?=\s+\w+\s*:|\s*$)", body)
     )
 
     # SKU
