@@ -109,6 +109,21 @@ def fetch_amazon_order_messages(service) -> list[dict]:
     return result.get("messages", [])
 
 
+def fetch_shopify_order_messages(service) -> list[dict]:
+    """Return raw message metadata for Grassroots Athletics Co. Shopify order emails."""
+    result = (
+        service.users()
+        .messages()
+        .list(
+            userId="me",
+            q='from:team@grassrootsathletics.com subject:"Order #"',
+            maxResults=MAX_RESULTS,
+        )
+        .execute()
+    )
+    return result.get("messages", [])
+
+
 def get_message_body(service, msg_id: str) -> tuple[str, str]:
     """Return (subject, plain-text body) for a message."""
     msg = service.users().messages().get(userId="me", id=msg_id, format="raw").execute()
@@ -129,6 +144,7 @@ def get_message_body(service, msg_id: str) -> tuple[str, str]:
                 if part.get_content_type() == "text/html" and not part.get("Content-Disposition"):
                     charset = part.get_content_charset() or "utf-8"
                     body = part.get_payload(decode=True).decode(charset, errors="replace")
+                    body = re.sub(r"<style[^>]*>.*?</style>", " ", body, flags=re.DOTALL | re.IGNORECASE)
                     body = re.sub(r"<[^>]+>", " ", body)
                     body = re.sub(r"\s{2,}", " ", body)
                     break
@@ -221,6 +237,74 @@ def parse_order(subject: str, body: str) -> dict | None:
     }
 
 
+_SHOPIFY_NOISE = re.compile(
+    r"^(?:subtotal|shipping|free|tax|total|payment|delivery|shopify|\$[\d,\.]+\s*$)",
+    re.IGNORECASE,
+)
+
+
+def _clean_shopify_body(body: str) -> str:
+    """Strip CSS preamble that Shopify prepends to text/plain parts."""
+    m = re.search(r"^.+ placed order #", body, re.MULTILINE)
+    return body[m.start():] if m else body
+
+
+def parse_shopify_order(subject: str, body: str) -> dict | None:
+    """
+    Extract order fields from a Grassroots Athletics Co. Shopify notification.
+    Subject must match '[Grassroots Athletics Co.] Order #NNN placed by NAME'.
+    """
+    m = re.match(r"\[Grassroots Athletics Co\.\] Order #(\d+) placed by (.+)", subject, re.IGNORECASE)
+    if not m:
+        return None
+
+    order_id = m.group(1)
+    customer = m.group(2).strip()
+
+    clean = _clean_shopify_body(body)
+
+    # Date placed — may span two lines ("Jun 17\nat 12:37 pm")
+    date_placed = _first(r"placed order #\d+\s+on\s+(.+?at\s+\d+:\d+\s*[apm]+)", clean, re.DOTALL | re.IGNORECASE)
+    if not date_placed:
+        date_placed = _first(r"placed order #\d+\s+on\s+(.+?)(?:\.|\n)", clean)
+    date_placed = re.sub(r"\s+", " ", date_placed or "N/A").strip()
+
+    # Items: find all "PRODUCT × QTY" or "QTY × PRODUCT" patterns
+    raw_matches = re.findall(r"([^\n×]{1,60})\s*×\s*(\d+)|(\d+)\s*×\s*([^\n×]{1,60})", clean)
+    items_list = []
+    for grp in raw_matches:
+        if grp[0]:
+            product, qty = grp[0].strip(), grp[1].strip()
+            display = f"{product} × {qty}"
+        else:
+            qty, product = grp[2].strip(), grp[3].strip()
+            display = f"{qty} × {product}"
+        if not _SHOPIFY_NOISE.match(product):
+            items_list.append(display)
+    items = ", ".join(items_list) if items_list else "N/A"
+
+    # Order total
+    total = _first(r"Total\s+(\$[\d,\.]+ USD)", clean) or "N/A"
+
+    # Delivery method
+    delivery = _first(r"Delivery method\s*\n?\s*(.+?)(?:\n|$)", clean) or "N/A"
+    delivery = delivery.strip()
+
+    # Box size: check item names and subject for "altair"
+    box_size = ALTAIR_BOX if re.search(r"altair", f"{items} {subject}", re.IGNORECASE) else DEFAULT_BOX
+
+    return {
+        "source": "shopify",
+        "order_id": order_id,
+        "customer": customer,
+        "date": date_placed,
+        "items": items,
+        "total": total,
+        "shipping": delivery,
+        "box_size": box_size,
+    }
+
+
 # ── Telegram alert ─────────────────────────────────────────────────────────────
 
 def send_telegram_alert(order: dict) -> bool:
@@ -255,6 +339,37 @@ def send_telegram_alert(order: dict) -> bool:
     return False
 
 
+def send_shopify_telegram_alert(order: dict) -> bool:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("WARNING: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set — skipping alert.")
+        return False
+
+    text = (
+        "🛍️ *New Shopify Order!*\n\n"
+        f"*Order #:*    `{order['order_id']}`\n"
+        f"*Customer:*   {order['customer']}\n"
+        f"*Date:*       {order['date']}\n"
+        f"*Items:*      {order['items']}\n"
+        f"*Total:*      {order['total']}\n"
+        f"*Shipping:*   {order['shipping']}\n"
+        f"*Box Size:*   {order['box_size']}"
+    )
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    resp = requests.post(
+        url,
+        json={"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "Markdown"},
+        timeout=15,
+    )
+
+    if resp.ok:
+        print(f"  ✓ Telegram alert sent for Shopify order #{order['order_id']}")
+        return True
+
+    print(f"  ✗ Telegram error {resp.status_code}: {resp.text}")
+    return False
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -262,21 +377,21 @@ def main():
     service = get_gmail_service()
 
     processed = load_processed_ids()
-    print(f"Fetching up to {MAX_RESULTS} 'Sold, ship now' messages…")
-    messages = fetch_amazon_order_messages(service)
-
-    if not messages:
-        print("No matching messages found.")
-        return
-
     new_count = 0
-    for meta in messages:
+
+    # ── Amazon "Sold, ship now" orders ────────────────────────────────────────
+    print(f"Fetching up to {MAX_RESULTS} Amazon 'Sold, ship now' messages…")
+    amazon_messages = fetch_amazon_order_messages(service)
+    if not amazon_messages:
+        print("No Amazon order messages found.")
+
+    for meta in amazon_messages:
         msg_id = meta["id"]
         if msg_id in processed:
             continue
 
         subject, body = get_message_body(service, msg_id)
-        print(f"\nProcessing: {subject[:80]}")
+        print(f"\nProcessing Amazon: {subject[:80]}")
 
         order = parse_order(subject, body)
         if order is None:
@@ -294,9 +409,36 @@ def main():
         if send_telegram_alert(order):
             processed.add(msg_id)
             new_count += 1
-        else:
-            # Don't mark as processed so we retry next run
-            pass
+
+    # ── Shopify orders from Grassroots Athletics Co. ──────────────────────────
+    print(f"\nFetching up to {MAX_RESULTS} Shopify order messages…")
+    shopify_messages = fetch_shopify_order_messages(service)
+    if not shopify_messages:
+        print("No Shopify order messages found.")
+
+    for meta in shopify_messages:
+        msg_id = meta["id"]
+        if msg_id in processed:
+            continue
+
+        subject, body = get_message_body(service, msg_id)
+        print(f"\nProcessing Shopify: {subject[:80]}")
+
+        order = parse_shopify_order(subject, body)
+        if order is None:
+            print("  → Skipped (subject doesn't match Shopify pattern).")
+            processed.add(msg_id)
+            continue
+
+        print(
+            f"  Order #{order['order_id']}  "
+            f"Customer={order['customer']}  "
+            f"Box={order['box_size']}"
+        )
+
+        if send_shopify_telegram_alert(order):
+            processed.add(msg_id)
+            new_count += 1
 
     save_processed_ids(processed)
     print(f"\nDone. {new_count} new alert(s) sent.")
