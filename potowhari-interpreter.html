@@ -162,9 +162,12 @@
       <br>1. No browser or cloud service ships native speech recognition or text-to-speech for Potowhari
       (Pahari-Potwari). This app approximates it using the closest available voices (Urdu / Punjabi),
       which will mispronounce plenty of words — treat it as a rough stand-in, not a native speaker.
-      <br>2. Translation is currently a <strong>stub</strong> — it does not yet call a real translation
-      engine. See the <code>translateText()</code> function in this file's source for where to plug one in
-      (e.g. an LLM API call). Voice recording, playback, and language swapping are fully wired up.
+      <br>2. Translation runs on a small built-in <strong>phrasebook</strong> (<span id="phrasebookCount">0</span>
+      entries — greetings and numbers only, gathered from web search and not yet verified against a primary
+      source). Anything outside that list won't be recognized yet. See the <code>PHRASEBOOK</code> array and
+      <code>translateText()</code> in this file's source to extend it or swap in a real translation API.
+      <br>3. Recording auto-translates and speaks the result out loud as soon as you stop talking — full
+      voice-to-voice, no extra clicks needed.
     </div>
 
     <div class="swap-bar">
@@ -307,6 +310,9 @@
 
     recognition.onend = function () {
       stopRecordingUI();
+      if (sourceText.value.trim()) {
+        runTranslate(true);
+      }
     };
   } else {
     recordBtn.disabled = true;
@@ -351,10 +357,52 @@
   });
 
   // ---------------------------------------------------------------------
-  // Translation — STUB. Replace the body of this function with a real
-  // call to a translation backend / LLM API. It receives the source text
-  // and the language keys ("potowhari" | "english") and must return a
-  // Promise<string> resolving to the translated text.
+  // Phrasebook — small, unverified starter set (greetings + numbers)
+  // gathered from web search while the original source PDF/Grokipedia
+  // page couldn't be fetched directly. Extend this array as better data
+  // comes in, or replace translateText() below with a real MT/LLM call.
+  // ---------------------------------------------------------------------
+  var PHRASEBOOK = [
+    { potowhari: "Salaam", english: "Hello" },
+    { potowhari: "Khudaafiz", english: "Goodbye" },
+    { potowhari: "Kea aal eh", english: "How are you" },
+    { potowhari: "Meh teek, shukar", english: "I'm fine, thank you" },
+    { potowhari: "Ta tut eek eh", english: "And you" },
+    { potowhari: "Saara kuch teek eh", english: "How's everything" },
+    { potowhari: "Navi taazi", english: "What's new" },
+    { potowhari: "Saab", english: "Mister" },
+    { potowhari: "Memsaab", english: "Lady" },
+    { potowhari: "ikk", english: "one" },
+    { potowhari: "do", english: "two" },
+    { potowhari: "trai", english: "three" },
+    { potowhari: "čar", english: "four" },
+    { potowhari: "panj", english: "five" },
+    { potowhari: "čae", english: "six" },
+    { potowhari: "satt", english: "seven" },
+    { potowhari: "att", english: "eight" },
+    { potowhari: "nau", english: "nine" },
+    { potowhari: "dass", english: "ten" }
+  ];
+
+  function normalizePhrase(text) {
+    return text.trim().toLowerCase().replace(/[.,!?]+$/g, "");
+  }
+
+  var POTOWHARI_TO_ENGLISH = {};
+  var ENGLISH_TO_POTOWHARI = {};
+  PHRASEBOOK.forEach(function (entry) {
+    POTOWHARI_TO_ENGLISH[normalizePhrase(entry.potowhari)] = entry.english;
+    ENGLISH_TO_POTOWHARI[normalizePhrase(entry.english)] = entry.potowhari;
+  });
+
+  document.getElementById("phrasebookCount").textContent = PHRASEBOOK.length;
+
+  // ---------------------------------------------------------------------
+  // Translation — looks up whole phrases in the PHRASEBOOK map above.
+  // Replace the body of this function with a real translation backend /
+  // LLM API call to go beyond the fixed phrase list; it receives the
+  // source text and language keys ("potowhari" | "english") and must
+  // return a Promise<string> resolving to the translated text.
   // ---------------------------------------------------------------------
   function translateText(text, fromKey, toKey) {
     return new Promise(function (resolve) {
@@ -362,24 +410,29 @@
         resolve("");
         return;
       }
-      // TODO: wire up a real translation engine here, e.g.:
-      //   return fetch("/api/translate", {
-      //     method: "POST",
-      //     headers: { "Content-Type": "application/json" },
-      //     body: JSON.stringify({ text: text, from: fromKey, to: toKey })
-      //   }).then(function (r) { return r.json(); })
-      //     .then(function (data) { resolve(data.translation); });
-      resolve("[translation engine not yet configured — showing input unchanged]\n" + text);
+      var dictionary = fromKey === "potowhari" ? POTOWHARI_TO_ENGLISH : ENGLISH_TO_POTOWHARI;
+      var match = dictionary[normalizePhrase(text)];
+      if (match) {
+        resolve(match);
+      } else {
+        resolve("(not in phrasebook yet: \"" + text.trim() + "\")");
+      }
     });
   }
 
-  translateBtn.addEventListener("click", function () {
+  function runTranslate(autoSpeak) {
     var text = sourceText.value;
     translateBtn.disabled = true;
     translateBtn.textContent = "Translating...";
-    translateText(text, state.sourceKey, state.targetKey)
+    return translateText(text, state.sourceKey, state.targetKey)
       .then(function (result) {
         targetText.value = result;
+        var found = result.indexOf("(not in phrasebook yet:") !== 0;
+        if (autoSpeak && found) {
+          speakUtterance(result, state.targetKey, targetVoiceSelect);
+        } else if (autoSpeak && !found) {
+          setSpeakStatus("No phrasebook match — nothing to speak.");
+        }
       })
       .catch(function (err) {
         setSpeakStatus("Translation failed: " + err.message, true);
@@ -388,6 +441,10 @@
         translateBtn.disabled = false;
         translateBtn.textContent = "Translate ↓";
       });
+  }
+
+  translateBtn.addEventListener("click", function () {
+    runTranslate(true);
   });
 
   // ---------------------------------------------------------------------
