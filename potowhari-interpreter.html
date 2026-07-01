@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Potowhari ⇄ English Voice Interpreter</title>
+<meta name="description" content="Speak-in, speak-out voice interpreter between Potowhari (Pahari-Potwari) and English." />
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #0b0f19;
+    color: #e5e7eb;
+  }
+  header {
+    padding: 2.5rem 1.5rem 1.5rem;
+    text-align: center;
+    background: linear-gradient(135deg, #1f2933, #020617);
+  }
+  header h1 {
+    font-size: 1.9rem;
+    margin: 0 0 0.5rem;
+  }
+  header p {
+    max-width: 640px;
+    margin: 0 auto;
+    color: #cbd5f5;
+    font-size: 0.95rem;
+  }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3rem;
+  }
+  .notice {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    font-size: 0.85rem;
+    color: #cbd5f5;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+  }
+  .notice strong { color: #fbbf24; }
+  .swap-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .lang-pill {
+    background: #111827;
+    border: 1px solid #334155;
+    border-radius: 999px;
+    padding: 0.5rem 1.1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  #swapBtn {
+    background: #1f2933;
+    border: 1px solid #334155;
+    color: #e5e7eb;
+    border-radius: 999px;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    font-size: 1.1rem;
+  }
+  #swapBtn:hover { background: #334155; }
+  .panel {
+    background: #111827;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .panel h2 {
+    font-size: 1rem;
+    margin: 0 0 0.75rem;
+    color: #93c5fd;
+  }
+  textarea {
+    width: 100%;
+    min-height: 110px;
+    resize: vertical;
+    background: #0b0f19;
+    color: #e5e7eb;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 1rem;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+  button.action {
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.55rem 1rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  button.action:hover { background: #1d4ed8; }
+  button.action.secondary {
+    background: #1f2933;
+    border: 1px solid #334155;
+  }
+  button.action.secondary:hover { background: #334155; }
+  button.action:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  button.action.recording {
+    background: #dc2626;
+  }
+  select {
+    background: #0b0f19;
+    color: #e5e7eb;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+  }
+  .status {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    min-height: 1.1rem;
+    margin-top: 0.5rem;
+  }
+  .status.error { color: #f87171; }
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.8rem;
+    color: #64748b;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Potowhari ⇄ English Voice Interpreter</h1>
+    <p>Speak a sentence, get it translated, hear it read back out loud — in either direction.</p>
+  </header>
+
+  <main>
+    <div class="notice">
+      <strong>Two things to know before you use this:</strong>
+      <br>1. No browser or cloud service ships native speech recognition or text-to-speech for Potowhari
+      (Pahari-Potwari). This app approximates it using the closest available voices (Urdu / Punjabi),
+      which will mispronounce plenty of words — treat it as a rough stand-in, not a native speaker.
+      <br>2. Translation is currently a <strong>stub</strong> — it does not yet call a real translation
+      engine. See the <code>translateText()</code> function in this file's source for where to plug one in
+      (e.g. an LLM API call). Voice recording, playback, and language swapping are fully wired up.
+    </div>
+
+    <div class="swap-bar">
+      <div class="lang-pill" id="sourceLabel">Potowhari</div>
+      <button id="swapBtn" title="Swap direction">⇄</button>
+      <div class="lang-pill" id="targetLabel">English</div>
+    </div>
+
+    <div class="panel">
+      <h2 id="sourceHeading">Source: Potowhari (spoken or typed)</h2>
+      <textarea id="sourceText" placeholder="Tap the mic and speak, or type here..."></textarea>
+      <div class="row">
+        <button class="action" id="recordBtn">🎙️ Record</button>
+        <button class="action secondary" id="clearSourceBtn">Clear</button>
+        <select id="sourceVoiceSelect" title="Voice used to read the source text back, if needed"></select>
+      </div>
+      <div class="status" id="recordStatus"></div>
+    </div>
+
+    <div style="text-align:center; margin: -0.5rem 0 1.25rem;">
+      <button class="action" id="translateBtn">Translate ↓</button>
+    </div>
+
+    <div class="panel">
+      <h2 id="targetHeading">Target: English (translated)</h2>
+      <textarea id="targetText" placeholder="Translation will appear here..."></textarea>
+      <div class="row">
+        <button class="action" id="speakBtn">🔊 Speak translation</button>
+        <button class="action secondary" id="clearTargetBtn">Clear</button>
+        <select id="targetVoiceSelect" title="Voice used to read the translation"></select>
+      </div>
+      <div class="status" id="speakStatus"></div>
+    </div>
+  </main>
+
+  <footer>Potowhari ⇄ English Voice Interpreter — experimental voice approximation.</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // Language configuration.
+  // Neither Potowhari speech recognition nor Potowhari TTS exist in
+  // browsers, so we fall back to the closest related languages available
+  // (Urdu / Punjabi) for both recognition and synthesis when the active
+  // side is "potowhari". English uses real, well-supported en-US.
+  // ---------------------------------------------------------------------
+  var LANGS = {
+    potowhari: {
+      label: "Potowhari",
+      recognitionLang: "ur-PK",
+      ttsPrefixes: ["ur", "pa"] // preference order for closest-voice fallback
+    },
+    english: {
+      label: "English",
+      recognitionLang: "en-US",
+      ttsPrefixes: ["en"]
+    }
+  };
+
+  var state = {
+    sourceKey: "potowhari",
+    targetKey: "english"
+  };
+
+  var sourceLabel = document.getElementById("sourceLabel");
+  var targetLabel = document.getElementById("targetLabel");
+  var sourceHeading = document.getElementById("sourceHeading");
+  var targetHeading = document.getElementById("targetHeading");
+  var sourceText = document.getElementById("sourceText");
+  var targetText = document.getElementById("targetText");
+  var recordBtn = document.getElementById("recordBtn");
+  var recordStatus = document.getElementById("recordStatus");
+  var speakStatus = document.getElementById("speakStatus");
+  var translateBtn = document.getElementById("translateBtn");
+  var speakBtn = document.getElementById("speakBtn");
+  var swapBtn = document.getElementById("swapBtn");
+  var clearSourceBtn = document.getElementById("clearSourceBtn");
+  var clearTargetBtn = document.getElementById("clearTargetBtn");
+  var sourceVoiceSelect = document.getElementById("sourceVoiceSelect");
+  var targetVoiceSelect = document.getElementById("targetVoiceSelect");
+
+  function updateLabels() {
+    var src = LANGS[state.sourceKey];
+    var tgt = LANGS[state.targetKey];
+    sourceLabel.textContent = src.label;
+    targetLabel.textContent = tgt.label;
+    sourceHeading.textContent = "Source: " + src.label + " (spoken or typed)";
+    targetHeading.textContent = "Target: " + tgt.label + " (translated)";
+    populateVoiceSelect(sourceVoiceSelect, state.sourceKey);
+    populateVoiceSelect(targetVoiceSelect, state.targetKey);
+  }
+
+  swapBtn.addEventListener("click", function () {
+    var tmpKey = state.sourceKey;
+    state.sourceKey = state.targetKey;
+    state.targetKey = tmpKey;
+
+    var tmpText = sourceText.value;
+    sourceText.value = targetText.value;
+    targetText.value = tmpText;
+
+    updateLabels();
+  });
+
+  clearSourceBtn.addEventListener("click", function () {
+    sourceText.value = "";
+    recordStatus.textContent = "";
+  });
+  clearTargetBtn.addEventListener("click", function () {
+    targetText.value = "";
+    speakStatus.textContent = "";
+  });
+
+  // ---------------------------------------------------------------------
+  // Speech recognition (voice input)
+  // ---------------------------------------------------------------------
+  var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recognition = null;
+  var recording = false;
+
+  if (SpeechRecognitionCtor) {
+    recognition = new SpeechRecognitionCtor();
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognition.onresult = function (event) {
+      var transcript = "";
+      for (var i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      sourceText.value = transcript;
+    };
+
+    recognition.onerror = function (event) {
+      setRecordStatus("Recognition error: " + event.error, true);
+      stopRecordingUI();
+    };
+
+    recognition.onend = function () {
+      stopRecordingUI();
+    };
+  } else {
+    recordBtn.disabled = true;
+    setRecordStatus("Speech recognition isn't supported in this browser (try Chrome or Edge).", true);
+  }
+
+  function setRecordStatus(msg, isError) {
+    recordStatus.textContent = msg || "";
+    recordStatus.className = "status" + (isError ? " error" : "");
+  }
+
+  function setSpeakStatus(msg, isError) {
+    speakStatus.textContent = msg || "";
+    speakStatus.className = "status" + (isError ? " error" : "");
+  }
+
+  function stopRecordingUI() {
+    recording = false;
+    recordBtn.classList.remove("recording");
+    recordBtn.textContent = "🎙️ Record";
+  }
+
+  recordBtn.addEventListener("click", function () {
+    if (!recognition) return;
+
+    if (recording) {
+      recognition.stop();
+      return;
+    }
+
+    recognition.lang = LANGS[state.sourceKey].recognitionLang;
+    try {
+      recognition.start();
+      recording = true;
+      recordBtn.classList.add("recording");
+      recordBtn.textContent = "⏹️ Stop";
+      setRecordStatus("Listening in " + LANGS[state.sourceKey].label +
+        " (using " + recognition.lang + " recognition)...");
+    } catch (err) {
+      setRecordStatus("Could not start recording: " + err.message, true);
+    }
+  });
+
+  // ---------------------------------------------------------------------
+  // Translation — STUB. Replace the body of this function with a real
+  // call to a translation backend / LLM API. It receives the source text
+  // and the language keys ("potowhari" | "english") and must return a
+  // Promise<string> resolving to the translated text.
+  // ---------------------------------------------------------------------
+  function translateText(text, fromKey, toKey) {
+    return new Promise(function (resolve) {
+      if (!text.trim()) {
+        resolve("");
+        return;
+      }
+      // TODO: wire up a real translation engine here, e.g.:
+      //   return fetch("/api/translate", {
+      //     method: "POST",
+      //     headers: { "Content-Type": "application/json" },
+      //     body: JSON.stringify({ text: text, from: fromKey, to: toKey })
+      //   }).then(function (r) { return r.json(); })
+      //     .then(function (data) { resolve(data.translation); });
+      resolve("[translation engine not yet configured — showing input unchanged]\n" + text);
+    });
+  }
+
+  translateBtn.addEventListener("click", function () {
+    var text = sourceText.value;
+    translateBtn.disabled = true;
+    translateBtn.textContent = "Translating...";
+    translateText(text, state.sourceKey, state.targetKey)
+      .then(function (result) {
+        targetText.value = result;
+      })
+      .catch(function (err) {
+        setSpeakStatus("Translation failed: " + err.message, true);
+      })
+      .then(function () {
+        translateBtn.disabled = false;
+        translateBtn.textContent = "Translate ↓";
+      });
+  });
+
+  // ---------------------------------------------------------------------
+  // Speech synthesis (voice output)
+  // ---------------------------------------------------------------------
+  var availableVoices = [];
+
+  function loadVoices() {
+    availableVoices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+    populateVoiceSelect(sourceVoiceSelect, state.sourceKey);
+    populateVoiceSelect(targetVoiceSelect, state.targetKey);
+  }
+
+  function votesForLang(langKey) {
+    var prefixes = LANGS[langKey].ttsPrefixes;
+    var matches = [];
+    prefixes.forEach(function (prefix) {
+      availableVoices.forEach(function (v) {
+        if (v.lang && v.lang.toLowerCase().indexOf(prefix) === 0 && matches.indexOf(v) === -1) {
+          matches.push(v);
+        }
+      });
+    });
+    return matches;
+  }
+
+  function populateVoiceSelect(selectEl, langKey) {
+    var matches = votesForLang(langKey);
+    var list = matches.length ? matches : availableVoices;
+    var previousValue = selectEl.value;
+    selectEl.innerHTML = "";
+
+    if (!list.length) {
+      var opt = document.createElement("option");
+      opt.textContent = "No voices available";
+      selectEl.appendChild(opt);
+      return;
+    }
+
+    list.forEach(function (v, i) {
+      var opt = document.createElement("option");
+      opt.value = v.name;
+      opt.textContent = v.name + " (" + v.lang + ")" + (matches.length ? "" : " — no close match, generic voice");
+      selectEl.appendChild(opt);
+    });
+
+    if (list.some(function (v) { return v.name === previousValue; })) {
+      selectEl.value = previousValue;
+    }
+  }
+
+  if (window.speechSynthesis) {
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  } else {
+    speakBtn.disabled = true;
+    setSpeakStatus("Speech synthesis isn't supported in this browser.", true);
+  }
+
+  function speakUtterance(text, langKey, voiceSelectEl) {
+    if (!window.speechSynthesis || !text.trim()) return;
+    window.speechSynthesis.cancel();
+
+    var utterance = new SpeechSynthesisUtterance(text);
+    var chosenName = voiceSelectEl.value;
+    var voice = availableVoices.find(function (v) { return v.name === chosenName; });
+
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    } else {
+      utterance.lang = LANGS[langKey].recognitionLang;
+    }
+
+    utterance.onerror = function (event) {
+      setSpeakStatus("Playback error: " + event.error, true);
+    };
+    utterance.onend = function () {
+      setSpeakStatus("Done.");
+    };
+
+    setSpeakStatus("Speaking (" + utterance.lang + ")...");
+    window.speechSynthesis.speak(utterance);
+  }
+
+  speakBtn.addEventListener("click", function () {
+    speakUtterance(targetText.value, state.targetKey, targetVoiceSelect);
+  });
+
+  updateLabels();
+})();
+</script>
+</body>
+</html>
