@@ -6,6 +6,7 @@
 <title>Potowhari ⇄ English Voice Interpreter</title>
 <meta name="description" content="Speak-in, speak-out voice interpreter between Potowhari (Pahari-Potwari) and English." />
 <style>
+  * { box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     margin: 0;
@@ -37,8 +38,8 @@
     background: #1e293b;
     border: 1px solid #334155;
     border-radius: 10px;
-    padding: 1rem 1.25rem;
-    font-size: 0.85rem;
+    padding: 0.9rem 1.1rem;
+    font-size: 0.82rem;
     color: #cbd5f5;
     margin-bottom: 1.5rem;
     line-height: 1.5;
@@ -49,7 +50,7 @@
     align-items: center;
     justify-content: center;
     gap: 1rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
   }
   .lang-pill {
     background: #111827;
@@ -58,6 +59,8 @@
     padding: 0.5rem 1.1rem;
     font-size: 0.9rem;
     font-weight: 600;
+    min-width: 92px;
+    text-align: center;
   }
   #swapBtn {
     background: #1f2933;
@@ -68,8 +71,50 @@
     height: 40px;
     cursor: pointer;
     font-size: 1.1rem;
+    flex-shrink: 0;
   }
   #swapBtn:hover { background: #334155; }
+
+  /* Hero mic control */
+  .mic-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.75rem;
+  }
+  .mic-button {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: none;
+    color: white;
+    font-size: 2.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .mic-button:hover { transform: scale(1.04); background: #1d4ed8; }
+  .mic-button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .mic-button.recording {
+    background: #dc2626;
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); }
+    70%  { box-shadow: 0 0 0 22px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+  }
+  .mic-hint {
+    font-size: 0.88rem;
+    color: #94a3b8;
+    text-align: center;
+  }
+
   .panel {
     background: #111827;
     border: 1px solid #1e293b;
@@ -84,7 +129,7 @@
   }
   textarea {
     width: 100%;
-    min-height: 110px;
+    min-height: 100px;
     resize: vertical;
     background: #0b0f19;
     color: #e5e7eb;
@@ -124,9 +169,6 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
-  button.action.recording {
-    background: #dc2626;
-  }
   select {
     background: #0b0f19;
     color: #e5e7eb;
@@ -134,26 +176,147 @@
     border-radius: 8px;
     padding: 0.5rem;
     font-size: 0.85rem;
+    max-width: 100%;
   }
   .status {
     font-size: 0.8rem;
     color: #94a3b8;
     min-height: 1.1rem;
     margin-top: 0.5rem;
+    text-align: center;
   }
   .status.error { color: #f87171; }
+
+  /* Phrasebook browser */
+  details.phrasebook {
+    background: #111827;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  details.phrasebook summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #93c5fd;
+    font-size: 0.95rem;
+    list-style: none;
+  }
+  details.phrasebook summary::-webkit-details-marker { display: none; }
+  details.phrasebook summary::before {
+    content: "▸ ";
+    color: #60a5fa;
+  }
+  details.phrasebook[open] summary::before {
+    content: "▾ ";
+  }
+  .phrasebook-note {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin: 0.5rem 0 0.75rem;
+  }
+  .phrase-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .phrase-head {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    padding: 0.4rem 0.6rem;
+    background: #0b0f19;
+  }
+  .phrase-cell {
+    background: #0b0f19;
+    padding: 0.55rem 0.6rem;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+  .phrase-row:hover .phrase-cell { background: #1e293b; }
+  .phrase-cell.potowhari-word { color: #e5e7eb; font-weight: 500; }
+  .phrase-cell.english-word { color: #94a3b8; }
+
+  /* Conversation history */
+  .history { margin-top: 2rem; }
+  .history h2 {
+    font-size: 1.1rem;
+    color: #93c5fd;
+    margin: 0 0 0.9rem;
+  }
+  .history-item {
+    background: #111827;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+  .history-item.unmatched { opacity: 0.6; }
+  .history-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .history-text-block { flex: 1; min-width: 0; }
+  .history-lang {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #60a5fa;
+    margin-bottom: 0.15rem;
+  }
+  .history-text { font-size: 0.94rem; word-break: break-word; }
+  .history-arrow { color: #475569; margin: 0.35rem 0; font-size: 0.8rem; }
+  .history-replay {
+    background: none;
+    border: 1px solid #334155;
+    color: #e5e7eb;
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .history-replay:hover { background: #1e293b; }
+  .history-time { font-size: 0.7rem; color: #64748b; margin-top: 0.5rem; }
+  .history-empty {
+    color: #64748b;
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 1.5rem;
+    border: 1px dashed #334155;
+    border-radius: 12px;
+  }
+  .history-clear {
+    display: block;
+    margin: 0 auto 1rem;
+  }
+
   footer {
     text-align: center;
     padding: 1.5rem;
     font-size: 0.8rem;
     color: #64748b;
   }
+
+  @media (max-width: 480px) {
+    header { padding: 2rem 1rem 1.25rem; }
+    header h1 { font-size: 1.5rem; }
+    main { padding: 1.5rem 1rem 2rem; }
+    .mic-button { width: 78px; height: 78px; font-size: 1.8rem; }
+    .lang-pill { font-size: 0.8rem; padding: 0.45rem 0.8rem; min-width: 72px; }
+  }
 </style>
 </head>
 <body>
   <header>
     <h1>Potowhari ⇄ English Voice Interpreter</h1>
-    <p>Speak a sentence, get it translated, hear it read back out loud — in either direction.</p>
+    <p>Tap the mic, speak a phrase, and hear it translated back out loud — in either direction.</p>
   </header>
 
   <main>
@@ -164,10 +327,7 @@
       which will mispronounce plenty of words — treat it as a rough stand-in, not a native speaker.
       <br>2. Translation runs on a small built-in <strong>phrasebook</strong> (<span id="phrasebookCount">0</span>
       entries — greetings and numbers only, gathered from web search and not yet verified against a primary
-      source). Anything outside that list won't be recognized yet. See the <code>PHRASEBOOK</code> array and
-      <code>translateText()</code> in this file's source to extend it or swap in a real translation API.
-      <br>3. Recording auto-translates and speaks the result out loud as soon as you stop talking — full
-      voice-to-voice, no extra clicks needed.
+      source). Browse what's available below, or tap any entry to try it instantly.
     </div>
 
     <div class="swap-bar">
@@ -176,19 +336,20 @@
       <div class="lang-pill" id="targetLabel">English</div>
     </div>
 
+    <div class="mic-hero">
+      <button id="recordBtn" class="mic-button" title="Record">🎙️</button>
+      <div class="mic-hint" id="micHint">Tap to speak Potowhari</div>
+      <div class="status" id="recordStatus"></div>
+    </div>
+
     <div class="panel">
       <h2 id="sourceHeading">Source: Potowhari (spoken or typed)</h2>
       <textarea id="sourceText" placeholder="Tap the mic and speak, or type here..."></textarea>
       <div class="row">
-        <button class="action" id="recordBtn">🎙️ Record</button>
+        <button class="action" id="translateBtn">Translate ↓</button>
         <button class="action secondary" id="clearSourceBtn">Clear</button>
         <select id="sourceVoiceSelect" title="Voice used to read the source text back, if needed"></select>
       </div>
-      <div class="status" id="recordStatus"></div>
-    </div>
-
-    <div style="text-align:center; margin: -0.5rem 0 1.25rem;">
-      <button class="action" id="translateBtn">Translate ↓</button>
     </div>
 
     <div class="panel">
@@ -201,6 +362,19 @@
       </div>
       <div class="status" id="speakStatus"></div>
     </div>
+
+    <details class="phrasebook" id="phrasebookDetails">
+      <summary>Browse the phrasebook (<span id="phrasebookCount2">0</span> entries) — tap a row to try it</summary>
+      <p class="phrasebook-note">Unverified, gathered from web search. Tapping a row fills the source box in
+        whichever language is currently on the source side and translates it right away.</p>
+      <div class="phrase-grid" id="phraseGrid"></div>
+    </details>
+
+    <section class="history">
+      <h2>Conversation history</h2>
+      <button class="action secondary history-clear" id="clearHistoryBtn">Clear history</button>
+      <div id="historyList"></div>
+    </section>
   </main>
 
   <footer>Potowhari ⇄ English Voice Interpreter — experimental voice approximation.</footer>
@@ -241,6 +415,7 @@
   var sourceText = document.getElementById("sourceText");
   var targetText = document.getElementById("targetText");
   var recordBtn = document.getElementById("recordBtn");
+  var micHint = document.getElementById("micHint");
   var recordStatus = document.getElementById("recordStatus");
   var speakStatus = document.getElementById("speakStatus");
   var translateBtn = document.getElementById("translateBtn");
@@ -250,6 +425,8 @@
   var clearTargetBtn = document.getElementById("clearTargetBtn");
   var sourceVoiceSelect = document.getElementById("sourceVoiceSelect");
   var targetVoiceSelect = document.getElementById("targetVoiceSelect");
+  var historyList = document.getElementById("historyList");
+  var clearHistoryBtn = document.getElementById("clearHistoryBtn");
 
   function updateLabels() {
     var src = LANGS[state.sourceKey];
@@ -258,6 +435,7 @@
     targetLabel.textContent = tgt.label;
     sourceHeading.textContent = "Source: " + src.label + " (spoken or typed)";
     targetHeading.textContent = "Target: " + tgt.label + " (translated)";
+    micHint.textContent = recording ? "Listening in " + src.label + "..." : "Tap to speak " + src.label;
     populateVoiceSelect(sourceVoiceSelect, state.sourceKey);
     populateVoiceSelect(targetVoiceSelect, state.targetKey);
   }
@@ -276,11 +454,11 @@
 
   clearSourceBtn.addEventListener("click", function () {
     sourceText.value = "";
-    recordStatus.textContent = "";
+    setRecordStatus("");
   });
   clearTargetBtn.addEventListener("click", function () {
     targetText.value = "";
-    speakStatus.textContent = "";
+    setSpeakStatus("");
   });
 
   // ---------------------------------------------------------------------
@@ -332,7 +510,8 @@
   function stopRecordingUI() {
     recording = false;
     recordBtn.classList.remove("recording");
-    recordBtn.textContent = "🎙️ Record";
+    recordBtn.textContent = "🎙️";
+    micHint.textContent = "Tap to speak " + LANGS[state.sourceKey].label;
   }
 
   recordBtn.addEventListener("click", function () {
@@ -348,9 +527,9 @@
       recognition.start();
       recording = true;
       recordBtn.classList.add("recording");
-      recordBtn.textContent = "⏹️ Stop";
-      setRecordStatus("Listening in " + LANGS[state.sourceKey].label +
-        " (using " + recognition.lang + " recognition)...");
+      recordBtn.textContent = "⏹️";
+      micHint.textContent = "Listening in " + LANGS[state.sourceKey].label + "...";
+      setRecordStatus("Using " + recognition.lang + " recognition (closest available approximation).");
     } catch (err) {
       setRecordStatus("Could not start recording: " + err.message, true);
     }
@@ -358,9 +537,10 @@
 
   // ---------------------------------------------------------------------
   // Phrasebook — small, unverified starter set (greetings + numbers)
-  // gathered from web search while the original source PDF/Grokipedia
-  // page couldn't be fetched directly. Extend this array as better data
-  // comes in, or replace translateText() below with a real MT/LLM call.
+  // gathered from web search while the original source PDFs couldn't be
+  // fetched directly (this environment's network policy blocks general
+  // web access). Extend this array as better data comes in, or replace
+  // translateText() below with a real MT/LLM call.
   // ---------------------------------------------------------------------
   var PHRASEBOOK = [
     { potowhari: "Salaam", english: "Hello" },
@@ -396,6 +576,45 @@
   });
 
   document.getElementById("phrasebookCount").textContent = PHRASEBOOK.length;
+  document.getElementById("phrasebookCount2").textContent = PHRASEBOOK.length;
+
+  function renderPhraseGrid() {
+    var grid = document.getElementById("phraseGrid");
+    grid.innerHTML = "";
+
+    var headPotowhari = document.createElement("div");
+    headPotowhari.className = "phrase-head";
+    headPotowhari.textContent = "Potowhari";
+    var headEnglish = document.createElement("div");
+    headEnglish.className = "phrase-head";
+    headEnglish.textContent = "English";
+    grid.appendChild(headPotowhari);
+    grid.appendChild(headEnglish);
+
+    PHRASEBOOK.forEach(function (entry) {
+      var row = document.createDocumentFragment();
+
+      var potCell = document.createElement("div");
+      potCell.className = "phrase-cell potowhari-word phrase-row";
+      potCell.textContent = entry.potowhari;
+
+      var engCell = document.createElement("div");
+      engCell.className = "phrase-cell english-word phrase-row";
+      engCell.textContent = entry.english;
+
+      var handler = function () {
+        sourceText.value = state.sourceKey === "potowhari" ? entry.potowhari : entry.english;
+        runTranslate(true);
+      };
+      potCell.addEventListener("click", handler);
+      engCell.addEventListener("click", handler);
+
+      row.appendChild(potCell);
+      row.appendChild(engCell);
+      grid.appendChild(row);
+    });
+  }
+  renderPhraseGrid();
 
   // ---------------------------------------------------------------------
   // Translation — looks up whole phrases in the PHRASEBOOK map above.
@@ -422,14 +641,30 @@
 
   function runTranslate(autoSpeak) {
     var text = sourceText.value;
+    if (!text.trim()) return Promise.resolve();
+
     translateBtn.disabled = true;
     translateBtn.textContent = "Translating...";
+    var srcLabel = LANGS[state.sourceKey].label;
+    var tgtLabel = LANGS[state.targetKey].label;
+    var tgtKeyAtCallTime = state.targetKey;
+
     return translateText(text, state.sourceKey, state.targetKey)
       .then(function (result) {
         targetText.value = result;
         var found = result.indexOf("(not in phrasebook yet:") !== 0;
+
+        addHistoryEntry({
+          sourceLabel: srcLabel,
+          targetLabel: tgtLabel,
+          sourceText: text,
+          targetText: result,
+          targetKey: tgtKeyAtCallTime,
+          found: found
+        });
+
         if (autoSpeak && found) {
-          speakUtterance(result, state.targetKey, targetVoiceSelect);
+          speakUtterance(result, tgtKeyAtCallTime, targetVoiceSelect);
         } else if (autoSpeak && !found) {
           setSpeakStatus("No phrasebook match — nothing to speak.");
         }
@@ -446,6 +681,111 @@
   translateBtn.addEventListener("click", function () {
     runTranslate(true);
   });
+
+  // ---------------------------------------------------------------------
+  // Conversation history
+  // ---------------------------------------------------------------------
+  var HISTORY_KEY = "potowhariInterpreterHistory";
+  var history = [];
+  try {
+    history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+  } catch (e) {
+    history = [];
+  }
+
+  function saveHistory() {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 30)));
+    } catch (e) { /* storage unavailable — history stays in-memory only */ }
+  }
+
+  function addHistoryEntry(entry) {
+    entry.time = Date.now();
+    history.unshift(entry);
+    history = history.slice(0, 30);
+    saveHistory();
+    renderHistory();
+  }
+
+  function formatTime(ts) {
+    var d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function renderHistory() {
+    historyList.innerHTML = "";
+
+    if (!history.length) {
+      var empty = document.createElement("div");
+      empty.className = "history-empty";
+      empty.textContent = "No exchanges yet — record or try a phrase above.";
+      historyList.appendChild(empty);
+      return;
+    }
+
+    history.forEach(function (entry) {
+      var item = document.createElement("div");
+      item.className = "history-item" + (entry.found ? "" : " unmatched");
+
+      var row = document.createElement("div");
+      row.className = "history-row";
+
+      var textBlock = document.createElement("div");
+      textBlock.className = "history-text-block";
+
+      var srcLang = document.createElement("div");
+      srcLang.className = "history-lang";
+      srcLang.textContent = entry.sourceLabel;
+      var srcText = document.createElement("div");
+      srcText.className = "history-text";
+      srcText.textContent = entry.sourceText;
+
+      var arrow = document.createElement("div");
+      arrow.className = "history-arrow";
+      arrow.textContent = "↓";
+
+      var tgtLang = document.createElement("div");
+      tgtLang.className = "history-lang";
+      tgtLang.textContent = entry.targetLabel;
+      var tgtText = document.createElement("div");
+      tgtText.className = "history-text";
+      tgtText.textContent = entry.targetText;
+
+      textBlock.appendChild(srcLang);
+      textBlock.appendChild(srcText);
+      textBlock.appendChild(arrow);
+      textBlock.appendChild(tgtLang);
+      textBlock.appendChild(tgtText);
+
+      var replayBtn = document.createElement("button");
+      replayBtn.className = "history-replay";
+      replayBtn.title = "Replay translation";
+      replayBtn.textContent = "🔊";
+      replayBtn.disabled = !entry.found;
+      replayBtn.addEventListener("click", function () {
+        speakUtterance(entry.targetText, entry.targetKey, targetVoiceSelect);
+      });
+
+      row.appendChild(textBlock);
+      row.appendChild(replayBtn);
+
+      var time = document.createElement("div");
+      time.className = "history-time";
+      time.textContent = formatTime(entry.time);
+
+      item.appendChild(row);
+      item.appendChild(time);
+      historyList.appendChild(item);
+    });
+  }
+
+  clearHistoryBtn.addEventListener("click", function () {
+    history = [];
+    saveHistory();
+    renderHistory();
+  });
+
+  renderHistory();
 
   // ---------------------------------------------------------------------
   // Speech synthesis (voice output)
@@ -484,7 +824,7 @@
       return;
     }
 
-    list.forEach(function (v, i) {
+    list.forEach(function (v) {
       var opt = document.createElement("option");
       opt.value = v.name;
       opt.textContent = v.name + " (" + v.lang + ")" + (matches.length ? "" : " — no close match, generic voice");
