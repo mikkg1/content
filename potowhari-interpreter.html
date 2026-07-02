@@ -326,8 +326,9 @@
       (Pahari-Potwari). This app approximates it using the closest available voices (Urdu / Punjabi),
       which will mispronounce plenty of words — treat it as a rough stand-in, not a native speaker.
       <br>2. Translation runs on a small built-in <strong>phrasebook</strong> (<span id="phrasebookCount">0</span>
-      entries — greetings and numbers only, gathered from web search and not yet verified against a primary
-      source). Browse what's available below, or tap any entry to try it instantly.
+      entries — mostly hand-transcribed from a scanned Mirpuri/Potwari phrasebook handout, plus a few from
+      web search). Because it came off a photographed page, spelling is approximate, not authoritative.
+      Browse what's available below, or tap any entry to try it instantly.
     </div>
 
     <div class="swap-bar">
@@ -536,22 +537,38 @@
   });
 
   // ---------------------------------------------------------------------
-  // Phrasebook — small, unverified starter set (greetings + numbers)
-  // gathered from web search while the original source PDFs couldn't be
-  // fetched directly (this environment's network policy blocks general
-  // web access). Extend this array as better data comes in, or replace
-  // translateText() below with a real MT/LLM call.
+  // Phrasebook — a starter set of greetings, numbers, and vocabulary.
+  // Most entries below were hand-transcribed from a scanned Mirpuri/Potwari
+  // phrasebook handout the user provided as photos; a smaller original set
+  // came from web search while the source PDFs couldn't be fetched. Because
+  // the handout entries came off a photographed page, treat spelling as
+  // approximate rather than authoritative. Extend this array as better data
+  // comes in, or replace translateText() below with a real MT/LLM call.
   // ---------------------------------------------------------------------
   var PHRASEBOOK = [
     { potowhari: "Salaam", english: "Hello" },
     { potowhari: "Khudaafiz", english: "Goodbye" },
+    { potowhari: "Rab Rakha", english: "Goodbye (formal)" },
     { potowhari: "Kea aal eh", english: "How are you" },
     { potowhari: "Meh teek, shukar", english: "I'm fine, thank you" },
-    { potowhari: "Ta tut eek eh", english: "And you" },
+    { potowhari: "Ta tu tek eh", english: "And you" },
     { potowhari: "Saara kuch teek eh", english: "How's everything" },
     { potowhari: "Navi taazi", english: "What's new" },
+    { potowhari: "Kuch ni", english: "Nothing" },
+    { potowhari: "Khyaal rakhna", english: "Take care" },
     { potowhari: "Saab", english: "Mister" },
     { potowhari: "Memsaab", english: "Lady" },
+    { potowhari: "Shukar", english: "Thank you" },
+    { potowhari: "Meharbani karke", english: "Please" },
+    { potowhari: "Meharbani", english: "Much obliged" },
+    { potowhari: "Haan", english: "Yes" },
+    { potowhari: "Naeen", english: "No" },
+    { potowhari: "Kudar jalyean an", english: "Where are you going" },
+    { potowhari: "Taara naa keh", english: "What's your name" },
+    { potowhari: "Tusaan kaira hiye", english: "Where are you (formal)" },
+    { potowhari: "Me belaiti chaa", english: "I'm from England" },
+    { potowhari: "Tuaara graa naa ki ke keh", english: "What's your village's name" },
+    { potowhari: "Aa jaraa", english: "Come here" },
     { potowhari: "ikk", english: "one" },
     { potowhari: "do", english: "two" },
     { potowhari: "trai", english: "three" },
@@ -561,7 +578,23 @@
     { potowhari: "satt", english: "seven" },
     { potowhari: "att", english: "eight" },
     { potowhari: "nau", english: "nine" },
-    { potowhari: "dass", english: "ten" }
+    { potowhari: "dass", english: "ten" },
+    { potowhari: "Hazaar", english: "Thousand" },
+    { potowhari: "Chitta", english: "White" },
+    { potowhari: "Peela", english: "Yellow" },
+    { potowhari: "Gulaabi", english: "Pink" },
+    { potowhari: "Jaamni", english: "Purple" },
+    { potowhari: "Kaala", english: "Black" },
+    { potowhari: "Neela", english: "Blue" },
+    { potowhari: "Paagal", english: "Crazy" },
+    { potowhari: "Mera", english: "My" },
+    { potowhari: "Assa", english: "We" },
+    { potowhari: "Kaan", english: "Ear" },
+    { potowhari: "Sare paase", english: "Everywhere" },
+    { potowhari: "Sakoon", english: "Peace" },
+    { potowhari: "Seb", english: "Apple" },
+    { potowhari: "Ki", english: "What" },
+    { potowhari: "Tusaan", english: "Your (formal)" }
   ];
 
   function normalizePhrase(text) {
